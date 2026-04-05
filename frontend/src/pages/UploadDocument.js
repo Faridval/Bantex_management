@@ -26,17 +26,43 @@ const UploadDocument = () => {
 
   const fetchDepartments = async () => {
     try {
+      const res = await axios.get("http://localhost:5000/api/departments");
+      setDepartments(res.data || []);
+    } catch (error) {
+      console.error("Department fetch error:", error);
+    }
+  };
 
-      const res = await axios.get(
-        "http://localhost:5000/api/departments"
+  // =========================
+  // ADD DEPARTMENT
+  // =========================
+  const handleAddDepartment = async () => {
+
+    const { value: name } = await Swal.fire({
+      title: "Add Department",
+      input: "text",
+      inputLabel: "Department Name",
+      inputPlaceholder: "e.g. Finance",
+      showCancelButton: true,
+      confirmButtonColor: "#15803d",
+    });
+
+    if (!name) return;
+
+    try {
+
+      await axios.post(
+        "http://localhost:5000/api/departments",
+        { name }
       );
 
-      setDepartments(res.data || []);
+      Swal.fire("Success", "Department added", "success");
+
+      fetchDepartments();
 
     } catch (error) {
-
-      console.error("Department fetch error:", error);
-
+      console.error(error);
+      Swal.fire("Error", "Failed to add department", "error");
     }
   };
 
@@ -44,46 +70,36 @@ const UploadDocument = () => {
   // HANDLE INPUT
   // =========================
   const handleChange = (e) => {
-
     const { name, value } = e.target;
 
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       [name]: value,
     }));
-
   };
 
   // =========================
-  // HANDLE FILE SELECT
+  // HANDLE FILE
   // =========================
   const handleFileChange = (e) => {
-
-    const selectedFiles = Array.from(e.target.files);
-    setFiles(selectedFiles);
-
+    setFiles(Array.from(e.target.files));
   };
 
-  // =========================
-  // REMOVE FILE
-  // =========================
   const removeFile = (index) => {
-
-    const updatedFiles = [...files];
-    updatedFiles.splice(index, 1);
-    setFiles(updatedFiles);
-
+    const updated = [...files];
+    updated.splice(index, 1);
+    setFiles(updated);
   };
 
   // =========================
-  // SUBMIT FORM
+  // SUBMIT
   // =========================
   const handleSubmit = async (e) => {
 
     e.preventDefault();
 
     if (!files.length) {
-      alert("Please select file(s)");
+      Swal.fire("Warning", "Please select file(s)", "warning");
       return;
     }
 
@@ -101,28 +117,23 @@ const UploadDocument = () => {
       const user = JSON.parse(localStorage.getItem("user"));
       data.append("created_by", user?.id || 1);
 
-      files.forEach((file) => {
+      files.forEach(file => {
         data.append("files", file);
       });
 
       const res = await axios.post(
         "http://localhost:5000/api/bantex",
-        data,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
+        data
       );
 
       if (res.data.success) {
 
-Swal.fire({
-  icon: "success",
-  title: "Upload Successful",
-  text: "Bantex uploaded successfully",
-  confirmButtonColor: "#1e3a8a",
-});
+        Swal.fire({
+          icon: "success",
+          title: "Upload Successful",
+          text: "Bantex uploaded successfully",
+          confirmButtonColor: "#15803d",
+        });
 
         setFormData({
           nama_bantex: "",
@@ -132,20 +143,16 @@ Swal.fire({
         });
 
         setFiles([]);
-
       }
 
     } catch (error) {
 
-      console.error("Upload error:", error);
-      alert("Upload failed");
+      console.error(error);
+      Swal.fire("Error", "Upload failed", "error");
 
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
   return (
@@ -156,12 +163,8 @@ Swal.fire({
       <div className="flex-1">
 
         {/* HEADER */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4">
-
-          <h1 className="text-2xl font-bold text-gray-900">
-            Upload Bantex
-          </h1>
-
+        <div className="bg-white border-b px-8 py-4">
+          <h1 className="text-2xl font-bold">Upload Bantex</h1>
         </div>
 
         {/* CONTENT */}
@@ -182,26 +185,34 @@ Swal.fire({
                 required
               />
 
-              {/* DEPARTMENT */}
-              <select
-                name="department_id"
-                value={formData.department_id}
-                onChange={handleChange}
-                className="w-full border p-3 rounded-lg"
-                required
-              >
+              {/* DEPARTMENT + ADD */}
+              <div className="flex space-x-2">
 
-                <option value="">Select Department</option>
+                <select
+                  name="department_id"
+                  value={formData.department_id}
+                  onChange={handleChange}
+                  className="w-full border p-3 rounded-lg"
+                  required
+                >
+                  <option value="">Select Department</option>
 
-                {departments.map((dept) => (
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
 
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </option>
+                <button
+                  type="button"
+                  onClick={handleAddDepartment}
+                  className="px-4 bg-green-700 text-white rounded-lg hover:bg-green-800"
+                >
+                  +
+                </button>
 
-                ))}
-
-              </select>
+              </div>
 
               {/* DATE */}
               <input
@@ -212,7 +223,7 @@ Swal.fire({
                 className="w-full border p-3 rounded-lg"
               />
 
-              {/* KODE BANTEX */}
+              {/* KODE */}
               <input
                 type="text"
                 name="kode_bantex"
@@ -222,7 +233,7 @@ Swal.fire({
                 className="w-full border p-3 rounded-lg"
               />
 
-              {/* FILE UPLOAD */}
+              {/* FILE */}
               <input
                 type="file"
                 multiple
@@ -232,22 +243,12 @@ Swal.fire({
 
               {/* FILE LIST */}
               {files.length > 0 && (
-
                 <div className="bg-gray-50 p-3 rounded-lg">
-
-                  <p className="text-sm font-semibold mb-2">
-                    Selected Files:
-                  </p>
+                  <p className="text-sm font-semibold mb-2">Selected Files:</p>
 
                   {files.map((file, index) => (
-
-                    <div
-                      key={index}
-                      className="flex justify-between text-sm mb-1"
-                    >
-
+                    <div key={index} className="flex justify-between text-sm mb-1">
                       <span>{file.name}</span>
-
                       <button
                         type="button"
                         onClick={() => removeFile(index)}
@@ -255,28 +256,19 @@ Swal.fire({
                       >
                         Remove
                       </button>
-
                     </div>
-
                   ))}
-
                 </div>
-
               )}
 
               {/* BUTTON */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-green-900 text-white py-3 rounded-lg flex items-center justify-center space-x-2 hover:bg-green-800 transition"
+                className="w-full bg-green-900 text-white py-3 rounded-lg flex items-center justify-center space-x-2 hover:bg-green-800"
               >
-
                 <Upload size={18} />
-
-                <span>
-                  {loading ? "Uploading..." : "Upload Bantex"}
-                </span>
-
+                <span>{loading ? "Uploading..." : "Upload Bantex"}</span>
               </button>
 
             </form>
