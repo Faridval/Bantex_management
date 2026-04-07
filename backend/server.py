@@ -36,6 +36,48 @@ def home():
     return jsonify({"message": "Backend Running"})
 
 # =========================
+# REGISTER
+# =========================
+@app.route("/api/register", methods=["POST"])
+def register():
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username or not password:
+        return jsonify({
+            "success": False,
+            "message": "Username & password required"
+        }), 400
+
+    # cek duplicate
+    cursor.execute(
+        "SELECT * FROM users WHERE username=%s",
+        (username,)
+    )
+    existing = cursor.fetchone()
+
+    if existing:
+        return jsonify({
+            "success": False,
+            "message": "Username already exists"
+        }), 400
+
+    cursor.execute(
+        "INSERT INTO users (username, password) VALUES (%s,%s)",
+        (username, password)
+    )
+
+    db.commit()
+    cursor.close()
+    db.close()
+
+    return jsonify({"success": True})
+
+# =========================
 # LOGIN
 # =========================
 @app.route("/api/login", methods=["POST"])
@@ -44,12 +86,12 @@ def login():
     cursor = db.cursor(dictionary=True)
 
     data = request.json
-    email = data["email"]
-    password = data["password"]
+    username = data.get("username")
+    password = data.get("password")
 
     cursor.execute(
-        "SELECT * FROM users WHERE email=%s AND password=%s",
-        (email, password)
+        "SELECT * FROM users WHERE username=%s AND password=%s",
+        (username, password)
     )
 
     user = cursor.fetchone()
@@ -62,60 +104,44 @@ def login():
             "success": True,
             "user": {
                 "id": user["id"],
-                "name": user["name"],
-                "email": user["email"]
+                "username": user["username"]
             }
         })
 
     return jsonify({
         "success": False,
-        "message": "Invalid email/password"
+        "message": "Invalid username/password"
     }), 401
 
 # =========================
-# GET + ADD DEPARTMENTS
+# DEPARTMENTS
 # =========================
 @app.route("/api/departments", methods=["GET", "POST"])
 def departments():
-
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    # ================= GET =================
     if request.method == "GET":
-
         cursor.execute("SELECT * FROM departments")
         data = cursor.fetchall()
 
         cursor.close()
         db.close()
-
         return jsonify(data)
 
-    # ================= POST =================
     if request.method == "POST":
-
         data = request.json
         name = data.get("name")
 
         if not name:
-            return jsonify({
-                "success": False,
-                "message": "Department name required"
-            }), 400
+            return jsonify({"success": False, "message": "Required"}), 400
 
-        # cek duplicate
         cursor.execute(
             "SELECT * FROM departments WHERE name=%s",
             (name,)
         )
-        existing = cursor.fetchone()
-
-        if existing:
-            return jsonify({
-                "success": False,
-                "message": "Department already exists"
-            }), 400
+        if cursor.fetchone():
+            return jsonify({"success": False, "message": "Exists"}), 400
 
         cursor.execute(
             "INSERT INTO departments (name) VALUES (%s)",
@@ -123,17 +149,13 @@ def departments():
         )
 
         db.commit()
-
         cursor.close()
         db.close()
 
-        return jsonify({
-            "success": True,
-            "message": "Department added"
-        })
+        return jsonify({"success": True})
 
 # =========================
-# CREATE BANTEX + MULTI FILE
+# CREATE BANTEX
 # =========================
 @app.route("/api/bantex", methods=["POST"])
 def create_bantex():
@@ -148,7 +170,6 @@ def create_bantex():
 
     files = request.files.getlist("files")
 
-    # insert bantex
     cursor.execute("""
         INSERT INTO bantex
         (nama_bantex, department_id, document_date, kode_bantex, created_by)
@@ -157,7 +178,6 @@ def create_bantex():
 
     bantex_id = cursor.lastrowid
 
-    # save files
     for file in files:
         if file:
             filename = secure_filename(file.filename)
@@ -170,14 +190,13 @@ def create_bantex():
             """, (bantex_id, filename, filepath))
 
     db.commit()
-
     cursor.close()
     db.close()
 
     return jsonify({"success": True})
 
 # =========================
-# GET BANTEX (SEARCH PAGE)
+# GET BANTEX
 # =========================
 @app.route("/api/bantex", methods=["GET"])
 def get_bantex():
@@ -200,29 +219,25 @@ def get_bantex():
     """)
 
     data = cursor.fetchall()
-
     cursor.close()
     db.close()
 
     return jsonify(data)
 
 # =========================
-# DASHBOARD STATS (FIX BUG DEPARTMENT)
+# DASHBOARD
 # =========================
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    # total bantex
     cursor.execute("SELECT COUNT(*) as total FROM bantex")
     total_docs = cursor.fetchone()["total"]
 
-    # total departments (REAL)
     cursor.execute("SELECT COUNT(*) as total FROM departments")
     total_depts = cursor.fetchone()["total"]
 
-    # today
     cursor.execute("""
         SELECT COUNT(*) as total 
         FROM bantex 
@@ -240,7 +255,7 @@ def dashboard():
     })
 
 # =========================
-# GET FILES BY BANTEX
+# FILES
 # =========================
 @app.route("/api/bantex/<int:id>/files", methods=["GET"])
 def get_files(id):
@@ -255,13 +270,10 @@ def get_files(id):
 
     return jsonify(data)
 
-# =========================
-# DELETE BANTEX
-# =========================
 @app.route("/api/bantex/<int:id>", methods=["DELETE"])
 def delete_bantex(id):
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     cursor.execute("DELETE FROM bantex WHERE id=%s", (id,))
     db.commit()
@@ -271,9 +283,6 @@ def delete_bantex(id):
 
     return jsonify({"success": True})
 
-# =========================
-# DELETE FILE
-# =========================
 @app.route("/api/files/<int:id>", methods=["DELETE"])
 def delete_file(id):
     db = get_db()
@@ -294,9 +303,6 @@ def delete_file(id):
 
     return jsonify({"success": True})
 
-# =========================
-# SERVE FILE
-# =========================
 @app.route("/uploads/<path:filename>")
 def serve_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)

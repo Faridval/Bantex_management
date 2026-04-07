@@ -5,8 +5,7 @@ import { useNavigate } from "react-router-dom";
 const Register = () => {
   const navigate = useNavigate();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -17,11 +16,7 @@ const Register = () => {
     try {
       const res = await axios.post(
         "http://localhost:5000/api/register",
-        {
-          name,
-          email,
-          password,
-        }
+        { username, password }
       );
 
       if (res.data.success) {
@@ -30,12 +25,7 @@ const Register = () => {
       }
 
     } catch (err) {
-      setError(
-  <>
-    Registration failed <br />
-    Account may already exist
-  </>
-);
+      setError("Registration failed (username mungkin sudah ada)");
     }
   };
 
@@ -46,23 +36,16 @@ const Register = () => {
         className="bg-white p-8 shadow-lg rounded-xl w-96"
       >
         <h2 className="text-2xl font-bold mb-6 text-center">
-          Create Sakura Account
+          Create Account
         </h2>
 
         {error && <p className="text-red-500">{error}</p>}
 
         <input
           type="text"
-          placeholder="Name"
+          placeholder="Username"
           className="w-full border p-3 mb-4"
-          onChange={(e) => setName(e.target.value)}
-        />
-
-        <input
-          type="email"
-          placeholder="Email"
-          className="w-full border p-3 mb-4"
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => setUsername(e.target.value)}
         />
 
         <input
